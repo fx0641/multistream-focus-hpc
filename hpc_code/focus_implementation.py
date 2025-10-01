@@ -1,7 +1,4 @@
 import numpy as np
-# Removed heavy scipy imports that cause DLL loading issues in multiprocessing:
-# from scipy.stats import norm      # Replaced with np.random.normal()
-# from scipy.stats import bernoulli # Replaced with np.random.random() < p
 import random
 import sys
 
@@ -12,10 +9,10 @@ def generate_data(M, T, nu, mu1):
     # Convert nu to int for array indexing and size parameters
     nu = int(nu)
     data = np.zeros((M,T))
-    data[M-1][:nu] = np.random.normal(0, 1, size=nu)  # Replaced norm.rvs()
-    data[M-1][nu:] = np.random.normal(mu1, 1, size=T-nu)  # Replaced norm.rvs()
+    data[M-1][:nu] = np.random.normal(0, 1, size=nu)  
+    data[M-1][nu:] = np.random.normal(mu1, 1, size=T-nu)  
     for i in range(M-1):
-        data[i] = np.random.normal(mu0, 1, size=T)  # Replaced norm.rvs()
+        data[i] = np.random.normal(mu0, 1, size=T)  
     return data
 
 def generate_streaming_observation(stream, time, nu, mu1, M, mu0=0):
@@ -316,54 +313,6 @@ def focus_oracle_streaming(M, T, nu, mu1, threshold):
             return t + 1, best_glr
             
     return None  # No detection within time horizon
-
-def xumei_streaming(M, T, nu, mu1, threshold, lower_bound):
-    """
-    Streaming implementation of Xumei algorithm with change point support.
-    For ARL experiments, use nu=0, mu1=0.
-    """
-    W = np.zeros(M)
-    stream = -1
-    t = -1
-    
-    while max(W) < threshold:
-        stream = (stream + 1) % M
-        m_t = 0
-        sum_t = 0
-        
-        while W[stream] >= 0 and W[stream] < threshold:
-            t = t + 1
-            if t >= T:  # Safety check
-                return None
-                
-            # Generate single data point on-demand with change point support
-            if stream == M-1:  # Last stream (M-1) has change point
-                if t < nu:
-                    x_t = np.random.normal(0, 1)  # Pre-change
-                else:
-                    x_t = np.random.normal(mu1, 1)  # Post-change
-            else:
-                x_t = np.random.normal(0, 1)  # No change in other streams
-            
-            if m_t == 0:
-                mean_estimate = lower_bound
-            else:
-                mean_estimate = max((sum_t/m_t, lower_bound))
-                
-            W[stream] = max((W[stream], 0)) + mean_estimate*x_t - (mean_estimate**2)/2
-            
-            for i in range(M):
-                if i != stream:
-                    W[i] = max((W[i], 0))
-                    
-            m_t = m_t + 1
-            sum_t = sum_t + x_t
-            
-        # Check if any stream exceeded threshold
-        if max(W) >= threshold:
-            return t + 1, max(W)
-            
-    return t + 1, max(W)
 
 # Backward-compatible wrappers that maintain old API but use streaming internally
 def focus_decay(data, threshold):

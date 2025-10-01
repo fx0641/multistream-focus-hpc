@@ -1,104 +1,81 @@
-# HPC Experiments
+# Multi-Stream Change Point Detection - HPC Code
 
-This directory contains scripts for running change point detection experiments on high-performance computing systems.
+Quick guide for running experiments on the HPC cluster.
 
-## Experiments
+## Running ARL Experiments
 
-### ARL Experiments (run_arl_experiments.py)
+ARL (Average Run Length) measures false alarm rates when there's no changepoint.
 
-Average Run Length experiments measure false alarm rates when there is NO change in the data. Higher ARL values indicate better performance (fewer false alarms).
-
-#### Usage
-
-```bash
-python run_arl_experiments.py --algorithms <algorithms> [options]
-```
-
-#### Required Arguments
-
-- `--algorithms`: Comma-separated list of algorithms to test
-  - Available: `focus_decay`, `focus_nonuhat`, `xumei`
-  - Example: `"focus_decay,xumei"`
-
-#### Optional Arguments
-
-- `--Ms`: Number of streams to test (default: "1,3,5,10")
-- `--threshold-min`: Minimum threshold value (default: 1000)
-- `--threshold-max`: Maximum threshold value (default: 5000)
-- `--threshold-steps`: Number of threshold steps to test (default: 5)
-- `--T`: Time horizon for each simulation (default: 1000000)
-- `--sims`: Number of simulations per configuration (default: 50)
-- `--workers`: Number of parallel workers (default: auto-detect)
-- `--xumei-lb`: Lower bound parameter for xumei algorithm (default: 2.0)
-- `--save`: Save results to pickle files
-
-#### Example
-
+**Example:**
 ```bash
 python run_arl_experiments.py \
-    --algorithms "focus_decay,xumei" \
-    --Ms "5,10" \
-    --threshold-min 10 \
-    --threshold-max 100 \
+    --algorithms "focus_decay" \
+    --Ms "10,25,50,100" \
+    --threshold-min 5.0 \
+    --threshold-max 12.0 \
     --threshold-steps 10 \
     --T 1000000 \
     --sims 500 \
+    --workers 24 \
     --save
 ```
 
-### EDD Experiments (run_edd_experiments.py)
-
-Expected Detection Delay experiments measure how quickly algorithms detect actual changes in the data. Lower EDD values indicate better performance (faster detection).
-
-#### Usage
-
+**On SLURM:**
 ```bash
-python run_edd_experiments.py --algorithms <algorithms> [options]
+sbatch run_arl_slurm.sbatch
 ```
 
-#### Required Arguments
+## Running EDD Experiments
 
-- `--algorithms`: Comma-separated list of algorithms to test
-  - Available: `focus_decay`, `focus_oracle`, `focus_nonuhat`, `xumei`
-  - Example: `"focus_decay,xumei"`
+EDD (Expected Detection Delay) measures how fast we detect actual changepoints.
 
-#### Optional Arguments
-
-- `--nus`: Change point locations to test (default: "0,1000,10000")
-- `--Ms`: Number of streams to test (default: "10")
-- `--threshold-min`: Minimum threshold value (default: 1000)
-- `--threshold-max`: Maximum threshold value (default: 5000)
-- `--threshold-steps`: Number of threshold steps to test (default: 5)
-- `--T`: Time horizon for each simulation (default: 1000000)
-- `--mu1`: Post-change mean value (default: 1.0)
-- `--sims`: Number of simulations per configuration (default: 50)
-- `--workers`: Number of parallel workers (default: auto-detect)
-- `--xumei-lb`: Lower bound parameter for xumei algorithm (default: 0.1)
-- `--save`: Save results to pickle files
-
-#### Example
-
+**Example:**
 ```bash
 python run_edd_experiments.py \
-    --algorithms "focus_decay,xumei" \
-    --nus "0,1000,5000,10000" \
-    --Ms "5,10,15,20" \
-    --threshold-min 1000 \
-    --threshold-max 10000 \
+    --algorithms "focus_decay" \
+    --nus "500" \
+    --Ms "10,25,50,100" \
+    --threshold-min 5.0 \
+    --threshold-max 12.0 \
     --threshold-steps 10 \
     --T 1000000 \
     --mu1 1.0 \
     --sims 500 \
+    --workers 24 \
     --save
 ```
 
+**On SLURM:**
+```bash
+sbatch run_edd_slurm.sbatch
+```
+
+## Generating Tables
+
+After running experiments, generate LaTeX tables:
+
+```bash
+python generate_arl_table.py --data-dir data/
+python generate_edd_tables.py --data-dir data/
+```
+
+## Making 3D Plots
+
+For visualizing EDD across different M and mu1 values:
+
+```bash
+python quick_3d_plot.py
+```
+
+## Key Parameters
+
+- `--Ms`: Number of streams (e.g., "10,25,50,100")
+- `--nus`: Changepoint location (use "500" for EDD)
+- `--mu1`: Post-change mean shift (try 1.0 or -1.0)
+- `--threshold-min/max`: Range of detection thresholds
+- `--sims`: Number of Monte Carlo simulations
+- `--workers`: Number of parallel workers
+
 ## Output
 
-When using `--save`, results are saved as pickle files with timestamps in the filename. Files include mean and standard deviation results for each configuration tested.
-
-## SLURM Batch Scripts
-
-- `run_arl_slurm.sbatch`: Template for running ARL experiments on SLURM clusters
-- `run_edd_slurm.sbatch`: Template for running EDD experiments on SLURM clusters
-
-Modify the SLURM parameters and file paths as needed for your cluster environment. 
+Results are saved as `.pkl` files in the `data/` directory with timestamps.

@@ -31,9 +31,6 @@ def run_single_arl_simulation(args):
             result = focus.focus_decay_streaming(M, T, nu=0, mu1=0, threshold=threshold)
         elif algorithm == 'focus_nonuhat':
             result = focus.focus_nonuhat_streaming(M, T, nu=0, mu1=0, threshold=threshold)
-        elif algorithm == 'xumei':
-            lower_bound = extra_params.get('lower_bound', 2.0)
-            result = focus.xumei_streaming(M, T, nu=0, mu1=0, threshold=threshold, lower_bound=lower_bound)
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
         
@@ -47,7 +44,7 @@ def run_single_arl_simulation(args):
         return None
 
 # All streaming algorithms now centralized in focus_implementation.py
-# Use: focus.focus_decay_streaming(), focus.focus_nonuhat_streaming(), focus.xumei_streaming()
+# Use: focus.focus_decay_streaming(), focus.focus_nonuhat_streaming()
 
 def run_arl_experiment(algorithm, Ms, thresholds, T=int(2e5), 
                       sims=50, n_workers=None, extra_params=None):
@@ -213,7 +210,7 @@ def save_arl_results(algorithm, Ms, thresholds, arl_means, arl_stds, T, sims,
 def main():
     parser = argparse.ArgumentParser(description='Run ARL experiments for change point detection algorithms')
     parser.add_argument('--algorithms', type=str, required=True,
-                       help='Comma-separated algorithms (e.g., focus_decay,xumei)')
+                       help='Comma-separated algorithms (e.g., focus_decay,focus_nonuhat)')
     parser.add_argument('--Ms', type=str, default='1,3,5,10',
                        help='Comma-separated number of streams to test')
     parser.add_argument('--threshold-min', type=float, default=1000,
@@ -227,8 +224,6 @@ def main():
     parser.add_argument('--T', type=int, default=1000000, help='Time horizon')
     parser.add_argument('--sims', type=int, default=50, help='Number of simulations')
     parser.add_argument('--workers', type=int, default=None, help='Number of workers')
-    parser.add_argument('--xumei-lb', type=float, default=2.0, 
-                       help='Lower bound for xumei algorithm')
     parser.add_argument('--save', action='store_true', help='Save results to files')
     parser.add_argument('--data-dir', type=str, default='data', help='Directory to save data files')
     
@@ -259,8 +254,6 @@ def main():
         
         # Set up extra parameters for this algorithm
         extra_params = {}
-        if algorithm == 'xumei':
-            extra_params['lower_bound'] = args.xumei_lb
 
         # Run experiment
         arl_means, arl_stds, all_times = run_arl_experiment(

@@ -32,10 +32,6 @@ def run_single_simulation(args):
             result = focus.focus_oracle_streaming(M, T, nu, mu1, threshold)
         elif algorithm == 'focus_nonuhat':
             result = focus.focus_nonuhat_streaming(M, T, nu, mu1, threshold)
-        elif algorithm == 'xumei':
-            lower_bound = extra_params.get('lower_bound', .1)
-            # Use centralized xumei streaming from focus_implementation
-            result = focus.xumei_streaming(M, T, nu, mu1, threshold, lower_bound)
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
         
@@ -49,7 +45,7 @@ def run_single_simulation(args):
         return None
 
 # All streaming algorithms now centralized in focus_implementation.py  
-# Use: focus.focus_decay_streaming(), focus.focus_nonuhat_streaming(), focus.xumei_streaming()
+# Use: focus.focus_decay_streaming(), focus.focus_nonuhat_streaming(), focus.focus_oracle_streaming()
 
 def run_experiment(algorithm, nus, thresholds, M=10, T=int(1e6), mu1=1, 
                   sims=50, n_workers=None, extra_params=None):
@@ -59,7 +55,7 @@ def run_experiment(algorithm, nus, thresholds, M=10, T=int(1e6), mu1=1,
     Parameters:
     -----------
     algorithm : str
-        Algorithm to use ('focus_decay', 'focus_oracle', 'focus_nonuhat', 'xumei')
+        Algorithm to use ('focus_decay', 'focus_oracle', 'focus_nonuhat')
     nus : list
         List of change point locations to test
     thresholds : list
@@ -228,7 +224,7 @@ def save_edd_results(algorithm, nus, thresholds, edd_means, edd_stds, T, sims,
 def main():
     parser = argparse.ArgumentParser(description='Run EDD experiments for change point detection algorithms')
     parser.add_argument('--algorithms', type=str, required=True,
-                       help='Comma-separated algorithms (e.g., focus_decay,xumei)')
+                       help='Comma-separated algorithms (e.g., focus_decay,focus_oracle,focus_nonuhat)')
     parser.add_argument('--nus', type=str, default='0,1000,10000',
                        help='Comma-separated change point locations')
     parser.add_argument('--Ms', type=str, default='10',
@@ -240,11 +236,10 @@ def main():
     parser.add_argument('--threshold-steps', type=int, default=5,
                        help='Number of threshold steps')
     parser.add_argument('--T', type=int, default=1000000, help='Time horizon')
-    parser.add_argument('--mu1', type=float, default=1.0, help='Post-change mean')
+    parser.add_argument('--mu1', type=float, default=1.0, help='Post-change mean (single value)')
+    parser.add_argument('--mu1-values', type=str, default=None, help='Comma-separated list of mu1 values (overrides --mu1)')
     parser.add_argument('--sims', type=int, default=50, help='Number of simulations')
     parser.add_argument('--workers', type=int, default=None, help='Number of workers')
-    parser.add_argument('--xumei-lb', type=float, default=0.1, 
-                       help='Lower bound for xumei algorithm')
     parser.add_argument('--save', action='store_true', help='Save results to files')
     parser.add_argument('--data-dir', type=str, default='data', help='Directory to save data files')
     
@@ -255,6 +250,12 @@ def main():
     nus = [float(x.strip()) for x in args.nus.split(',')]
     Ms = [int(x.strip()) for x in args.Ms.split(',')]
     
+    # Handle mu1 values - either single value or multiple values
+    if args.mu1_values:
+        mu1_values = [float(x.strip()) for x in args.mu1_values.split(',')]
+    else:
+        mu1_values = [args.mu1]
+    
     # Generate threshold range
     thresholds = np.linspace(args.threshold_min, args.threshold_max, args.threshold_steps)
     
@@ -262,36 +263,36 @@ def main():
     print(f"Algorithms: {algorithms}")
     print(f"Streams: {Ms}")
     print(f"Change points: {nus}")
+    print(f"Mean shifts: {mu1_values}")
     print(f"Thresholds: {len(thresholds)} steps from {args.threshold_min} to {args.threshold_max}")
     print("=" * 60)
 
-    # Run experiments for each algorithm and M combination
+    # Run experiments for each algorithm, M, and mu1 combination
     for algorithm in algorithms:
         for M in Ms:
-            print(f"\nRunning {algorithm} with M={M}")
-            
-            # Set up extra parameters for this algorithm
-            extra_params = {}
-            if algorithm == 'xumei':
-                extra_params['lower_bound'] = args.xumei_lb
+            for mu1 in mu1_values:
+                print(f"\nRunning {algorithm} with M={M}, mu1={mu1}")
+                
+                # Set up extra parameters for this algorithm
+                extra_params = {}
 
-            # Run experiment
-            edd_means, edd_stds, all_detection_times = run_experiment(
-                algorithm=algorithm,
-                nus=nus,
-                thresholds=thresholds,
-                M=M,
-                T=args.T,
-                mu1=args.mu1,
-                sims=args.sims,
-                n_workers=args.workers,
-                extra_params=extra_params
-            )
-            
-            # Save results if requested
-            if args.save:
-                save_edd_results(algorithm, nus, thresholds, edd_means, edd_stds, args.T, 
-                                args.sims, all_detection_times, extra_params, args.workers, M, args.mu1, args.data_dir)
+                # Run experiment
+                edd_means, edd_stds, all_detection_times = run_experiment(
+                    algorithm=algorithm,
+                    nus=nus,
+                    thresholds=thresholds,
+                    M=M,
+                    T=args.T,
+                    mu1=mu1,
+                    sims=args.sims,
+                    n_workers=args.workers,
+                    extra_params=extra_params
+                )
+                
+                # Save results if requested
+                if args.save:
+                    save_edd_results(algorithm, nus, thresholds, edd_means, edd_stds, args.T, 
+                                    args.sims, all_detection_times, extra_params, args.workers, M, mu1, args.data_dir)
     
     print(f"\nCompleted EDD experiments for all {len(algorithms)} algorithms and {len(Ms)} stream configurations!")
     return
